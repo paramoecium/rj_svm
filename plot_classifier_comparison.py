@@ -26,10 +26,10 @@ classifiers = [SVM(C=1, kernel='linear', gamma='auto'),
 tuned_parameters = [{'kernel': ['rbf'], 'gamma': [1, 1e-1, 1e-2, 1e-3, 1e-4],
                      'C': [0.1, 1, 10, 100]
                     }]
-classifiers = [GridSearchCV(SVM(C=1, kernel='linear', gamma='auto'), tuned_parameters, cv=5, scoring=None, n_jobs=8),
-               GridSearchCV(SVM(C=1, kernel='rbf', gamma='auto'), tuned_parameters, cv=5, scoring=None, n_jobs=8),
-               GridSearchCV(RSVM(C=1, kernel='rbf', gamma='auto'), tuned_parameters, cv=5, scoring=None, n_jobs=8),
-               GridSearchCV(CSSVM(C=1, kernel='rbf', gamma='auto'), tuned_parameters, cv=5, scoring=None, n_jobs=8)]
+classifiers = [GridSearchCV(SVM(C=1, kernel='linear', gamma='auto'), tuned_parameters, cv=5, scoring=None, n_jobs=20),
+               GridSearchCV(SVM(C=1, kernel='rbf', gamma='auto'), tuned_parameters, cv=5, scoring=None, n_jobs=20),
+               GridSearchCV(RSVM(C=1, kernel='rbf', gamma='auto'), tuned_parameters, cv=5, scoring=None, n_jobs=20),
+               GridSearchCV(CSSVM(C=1, kernel='rbf', gamma='auto'), tuned_parameters, cv=5, scoring=None, n_jobs=20)]
 X, y = make_classification(n_features=2, n_redundant=0, n_informative=2,
                            random_state=1, n_clusters_per_class=1)
 rng = np.random.RandomState(2)
@@ -75,7 +75,10 @@ for ds in datasets:
         print name
         clf.fit(X_train, y_train)
         score = clf.score(X_test, y_test)
-
+        for params, mean_score, scores in clf.grid_scores_:
+            print("%0.3f (+/-%0.03f) for %r"
+                  % (mean_score, scores.std() * 2, params))
+            print()
         # Plot the decision boundary. For that, we will assign a color to each
         # point in the mesh [x_min, m_max]x[y_min, y_max].
         if hasattr(clf, "decision_function"):

@@ -86,7 +86,7 @@ class SVM(object):
         constrain = [diag(y)*X*w + b*y + xi >= 1, xi >= 0]
         prob = Problem(objective, constrain)
         prob.solve()
-        print "status:", prob.status
+        #print "status:", prob.status
         #print "optimal value", prob.value
         #print "optimal var", w.value.ravel(), b.value
         self._w = w.value
@@ -109,7 +109,7 @@ class SVM(object):
         constrain = [Q*alpha + b*y + xi >= 1, alpha >= 0, xi >= 0]
         prob = Problem(objective, constrain)
         prob.solve()
-        print "status:", prob.status
+        #print "status:", prob.status
         #print "optimal value", prob.value
         #"optimal var", alpha.value.ravel(), b.value
         self._alpha = alpha.value
@@ -143,7 +143,7 @@ class RSVM(SVM):
         constrain = [Q_R*alpha + b*y + xi >= 1, alpha >= 0, xi >= 0]
         prob = Problem(objective, constrain)
         prob.solve()
-        print "status:", prob.status
+        #print "status:", prob.status
         #print "optimal value", prob.value
         #"optimal var", alpha.value.ravel(), b.value
         self._alpha = alpha.value
@@ -180,7 +180,7 @@ class CSSVM(SVM):
         constrain = [Q_R*alpha + b*y + xi >= 1, alpha >= 0, xi >= 0]
         prob = Problem(objective, constrain)
         prob.solve()
-        print "status:", prob.status
+        #print "status:", prob.status
         #print "optimal value", prob.value
         #"optimal var", alpha.value.ravel(), b.value
         self._alpha = alpha.value
@@ -198,11 +198,9 @@ class CSSVM(SVM):
             f[i] = w_dot_x + self._b
         """
         y = np.zeros(len(X))
-        for i in xrange(len(X)):
-            x = X[i]
-            y_dot_K = np.multiply(rbf_kernel(self._X, X), self._y)
-            w_dot_x = np.dot(self._alpha.T, np.dot(self._phi.T, y_dot_K))
-            f = w_dot_x + self._b
+        y_dot_K = np.multiply(rbf_kernel(self._X, X), self._y)
+        w_dot_x = np.dot(self._alpha.T, np.dot(self._phi.T, y_dot_K))
+        f = w_dot_x + self._b
         f = np.squeeze(np.array(f))
         return f
 
