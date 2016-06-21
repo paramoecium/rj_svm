@@ -16,28 +16,32 @@ from rsvm import SVM, RSVM, CSSVM
 
 h = .02  # step size in the mesh
 
-names = ["Linear SVM", "RBF SVM", "RSVM", "CSSVM"]
+names = ["SVM(linear)", "SVM(rbf)", "RSVM(rbf)", "CSSVM(rbf)"]
 """
 classifiers = [SVM(C=1, kernel='linear', gamma='auto'), 
                SVM(C=1, kernel='rbf', gamma='auto'), 
                RSVM(C=1, kernel='rbf', gamma='auto'), 
                CSSVM(C=1, kernel='rbf', gamma='auto')]
 """
-tuned_parameters = [{'kernel': ['rbf'], 'gamma': [1, 1e-1, 1e-2, 1e-3, 1e-4],
-                     'C': [0.1, 1, 10, 100]
+tuned_parameters_l = [{'kernel': ['linear'],
+                     'C': [0.01, 0.1, 1, 10, 100]
                     }]
-classifiers = [GridSearchCV(SVM(C=1, kernel='linear', gamma='auto'), tuned_parameters, cv=5, scoring=None, n_jobs=20),
-               GridSearchCV(SVM(C=1, kernel='rbf', gamma='auto'), tuned_parameters, cv=5, scoring=None, n_jobs=20),
-               GridSearchCV(RSVM(C=1, kernel='rbf', gamma='auto'), tuned_parameters, cv=5, scoring=None, n_jobs=20),
-               GridSearchCV(CSSVM(C=1, kernel='rbf', gamma='auto'), tuned_parameters, cv=5, scoring=None, n_jobs=20)]
-X, y = make_classification(n_features=2, n_redundant=0, n_informative=2,
+tuned_parameters_rbf = [{'kernel': ['rbf'],
+                     'C': [0.01, 0.1, 1, 10, 100]
+                    }]
+classifiers = [GridSearchCV(SVM(C=1, kernel='linear', gamma='auto'), tuned_parameters_l, cv=5, scoring=None, n_jobs=20),
+               GridSearchCV(SVM(C=1, kernel='rbf', gamma='auto'), tuned_parameters_rbf, cv=5, scoring=None, n_jobs=20),
+               GridSearchCV(RSVM(C=1, kernel='rbf', gamma='auto'), tuned_parameters_rbf, cv=5, scoring=None, n_jobs=20),
+               GridSearchCV(CSSVM(C=1, kernel='rbf', gamma='auto'), tuned_parameters_rbf, cv=5, scoring=None, n_jobs=20)]
+
+X, y = make_classification(n_samples=500, n_features=2, n_redundant=0, n_informative=2,
                            random_state=1, n_clusters_per_class=1)
 rng = np.random.RandomState(2)
 X += 2 * rng.uniform(size=X.shape)
 linearly_separable = (X, y)
 
-datasets = [make_moons(noise=0.3, random_state=0),
-            make_circles(noise=0.2, factor=0.5, random_state=1),
+datasets = [make_moons(n_samples=500, noise=0.3, random_state=0),
+            make_circles(n_samples=500, noise=0.2, factor=0.5, random_state=1),
             linearly_separable
             ]
 
@@ -57,12 +61,13 @@ for ds in datasets:
 
     # just plot the dataset first
     cm = plt.cm.RdBu
-    cm_bright = ListedColormap(['#FF0000', '#0000FF'])
+    cm_bright = ListedColormap(['#0000FF', '#FF0000'])
     ax = plt.subplot(len(datasets), len(classifiers) + 1, i)
+    dot_size = 5000.0/len(X)
     # Plot the training points
-    ax.scatter(X_train[:, 0], X_train[:, 1], c=y_train, cmap=cm_bright)
+    #ax.scatter(X_train[:, 0], X_train[:, 1], s=dot_size, c=y_train, cmap=cm_bright)
     # and testing points
-    ax.scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap=cm_bright, alpha=0.6)
+    ax.scatter(X_test[:, 0], X_test[:, 1], s=dot_size, c=y_test, cmap=cm_bright, alpha=0.6)
     ax.set_xlim(xx.min(), xx.max())
     ax.set_ylim(yy.min(), yy.max())
     ax.set_xticks(())
@@ -91,9 +96,9 @@ for ds in datasets:
         ax.contourf(xx, yy, Z, cmap=cm, alpha=.8)
 
         # Plot also the training points
-        ax.scatter(X_train[:, 0], X_train[:, 1], c=y_train, cmap=cm_bright)
+        #ax.scatter(X_train[:, 0], X_train[:, 1], s=dot_size, c=y_train, cmap=cm_bright)
         # and testing points
-        ax.scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap=cm_bright,
+        ax.scatter(X_test[:, 0], X_test[:, 1], s=dot_size, c=y_test, cmap=cm_bright,
                    alpha=0.6)
 
         ax.set_xlim(xx.min(), xx.max())

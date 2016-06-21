@@ -33,13 +33,6 @@ class SVM(object):
             self.gamma = 1/float(len(X[0]))
         y = np.vstack([int(yi==self._pos_label)*2-1 for yi in y]) # convert labels to (+1,-1)
         Q = np.zeros((len(X), len(X)))
-        '''
-        for i in xrange(len(X)):
-            Q[i, i] = 1
-            for j in xrange(i+1, len(X)):
-                Q[i, j] = y[i]* y[j]*self._kernel_dict[self.kernel](X[i], X[j])
-                Q[j, i] = Q[i, j]
-        '''
         if self.kernel == 'linear':
             self._solve_primal_weight(X, y)
             # TODO linear SVM can be solved in dual form, too.
@@ -60,12 +53,6 @@ class SVM(object):
         if self.kernel == 'linear':
             f = np.dot(X, self._w) + self._b
         elif self.kernel == 'rbf':
-            """
-            f = np.zeros(len(X))
-            for i in xrange(len(X)):
-                x = X[i]
-                f[i] = np.sum([ya*self._kernel_dict[self.kernel](sv, x) for sv, ya in zip(self._X, self._ya)], axis=0) + self._b
-            """
             ## rbf_kernel returns array of shape (n_samples_X, n_samples_Y)
             assert self._ya.shape == (len(self._X), 1)
             f = np.sum(np.multiply(rbf_kernel(self._X, X), self._ya), axis=0) + self._b
@@ -85,7 +72,8 @@ class SVM(object):
                              sum_squares(xi))
         constrain = [diag(y)*X*w + b*y + xi >= 1, xi >= 0]
         prob = Problem(objective, constrain)
-        prob.solve()
+        with Timer('solving'):
+            prob.solve()
         #print "status:", prob.status
         #print "optimal value", prob.value
         #print "optimal var", w.value.ravel(), b.value
@@ -108,7 +96,8 @@ class SVM(object):
                              sum_squares(xi))
         constrain = [Q*alpha + b*y + xi >= 1, alpha >= 0, xi >= 0]
         prob = Problem(objective, constrain)
-        prob.solve()
+        with Timer('solving'):
+            prob.solve()
         #print "status:", prob.status
         #print "optimal value", prob.value
         #"optimal var", alpha.value.ravel(), b.value
@@ -125,7 +114,7 @@ class RSVM(SVM):
                  shrinking, probability, tol, cache_size,
                  class_weight, verbose, max_iter, 
                  decision_function_shape, random_state)
-        if kernel == 'linear': print 'Warning: only rbf kernel available now!' # TODO because of indefinite Q
+        if kernel == 'linear': print 'Warning: only rbf kernel available now!' # TODO because CVXPY can't solve with indefinite Q
 
     def _solve_primal_alpha(self, Q, y):
         l = len(Q)
@@ -142,7 +131,8 @@ class RSVM(SVM):
                              sum_squares(xi))
         constrain = [Q_R*alpha + b*y + xi >= 1, alpha >= 0, xi >= 0]
         prob = Problem(objective, constrain)
-        prob.solve()
+        with Timer('solving'):
+            prob.solve()
         #print "status:", prob.status
         #print "optimal value", prob.value
         #"optimal var", alpha.value.ravel(), b.value
@@ -175,11 +165,12 @@ class CSSVM(SVM):
         b = Variable()
         xi = Variable(l)
         C = self.C
-        objective = Minimize((0.5/C)*((quad_form(alpha, Q_RR)) + square(b)) + 
-                             sum_squares(xi))
+        objective = Minimize((0.5/C)*(quad_form(alpha, Q_RR) + square(b)) + sum_squares(xi))
+        #objective = Minimize((0.5/C)*(sum_squares(alpha) + square(b)) + sum_squares(xi))
         constrain = [Q_R*alpha + b*y + xi >= 1, alpha >= 0, xi >= 0]
         prob = Problem(objective, constrain)
-        prob.solve()
+        with Timer('solving'):
+            prob.solve()
         #print "status:", prob.status
         #print "optimal value", prob.value
         #"optimal var", alpha.value.ravel(), b.value
@@ -189,14 +180,6 @@ class CSSVM(SVM):
 
     def decision_function(self, X):
         assert self.kernel == 'rbf'
-        """
-        f = np.zeros(len(X))
-        for i in xrange(len(X)):
-            x = X[i]
-            y_dot_K = [yi * self._kernel_dict[self.kernel](x, xi) for xi, yi in zip(self._X, self._y)]
-            w_dot_x = sum([alpha * np.dot(y_dot_K, phi_i) for alpha, phi_i in zip(self._alpha, self._phi.T)])
-            f[i] = w_dot_x + self._b
-        """
         y = np.zeros(len(X))
         y_dot_K = np.multiply(rbf_kernel(self._X, X), self._y)
         w_dot_x = np.dot(self._alpha.T, np.dot(self._phi.T, y_dot_K))
@@ -210,13 +193,13 @@ def main():
 if __name__ == '__main__':
     from sklearn.datasets import make_moons, make_classification
     from sklearn.cross_validation import train_test_split
-    X, y = make_moons(noise=0.3, random_state=0)
-    #X, y = make_classification(n_features=2, n_redundant=0, n_informative=2, random_state=1, n_clusters_per_class=1) # linearly separable
+    X, y = make_moons(n_samples=1000, noise=0.3, random_state=0)
+    #X, y = make_classification(n_samples=500, n_features=2, n_redundant=0, n_informative=2, random_state=1, n_clusters_per_class=1) # linearly separable
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.4)
 
     print('dual SVM, linear kernel')
     clf = SVM(C=1, kernel='linear', gamma='auto')
-    with Timer('training:'):
+    with Timer('training'):
         clf.fit(X_train, y_train)
     with Timer('testing'):
         print 'accuracy:', clf.score(X_test, y_test)
@@ -224,7 +207,7 @@ if __name__ == '__main__':
 
     print('dual SVM, rbf kernel')
     clf = SVM(C=1, kernel='rbf', gamma='auto')
-    with Timer('training:'):
+    with Timer('training'):
         clf.fit(X_train, y_train)
     with Timer('testing'):
         print 'accuracy:', clf.score(X_test, y_test)
