@@ -72,8 +72,7 @@ class SVM(object):
                              sum_squares(xi))
         constrain = [diag(y)*X*w + b*y + xi >= 1, xi >= 0]
         prob = Problem(objective, constrain)
-        with Timer('solving'):
-            prob.solve()
+        prob.solve()
         #print "status:", prob.status
         #print "optimal value", prob.value
         #print "optimal var", w.value.ravel(), b.value
@@ -96,8 +95,7 @@ class SVM(object):
                              sum_squares(xi))
         constrain = [Q*alpha + b*y + xi >= 1, alpha >= 0, xi >= 0]
         prob = Problem(objective, constrain)
-        with Timer('solving'):
-            prob.solve()
+        prob.solve()
         #print "status:", prob.status
         #print "optimal value", prob.value
         #"optimal var", alpha.value.ravel(), b.value
@@ -109,16 +107,21 @@ class RSVM(SVM):
     def __init__(self, C=1.0, kernel='rbf', degree=3, gamma='auto', coef0=0.0,
                  shrinking=True, probability=False, tol=0.001, cache_size=200,
                  class_weight=None, verbose=False, max_iter=-1, 
-                 decision_function_shape=None, random_state=None):
+                 decision_function_shape=None, random_state=None, m=0):
         super(RSVM, self).__init__(C, 'rbf', degree, gamma, coef0,
                  shrinking, probability, tol, cache_size,
                  class_weight, verbose, max_iter, 
                  decision_function_shape, random_state)
         if kernel == 'linear': print 'Warning: only rbf kernel available now!' # TODO because CVXPY can't solve with indefinite Q
+        self.m = m
+        assert m>0
+    def get_params(self, deep=False):
+        # suppose this estimator has parameters "alpha" and "recursive"
+        return {"C": self.C, "gamma": self.gamma, "kernel": self.kernel, "m": self.m}
 
     def _solve_primal_alpha(self, Q, y):
         l = len(Q)
-        m = int(l/4) # TODO
+        m = self.m
         self._R_index = np.random.choice(l, m, replace=False)
         Q_R = Q[:, self._R_index]
         Q_RR = Q_R[self._R_index, :]
@@ -131,8 +134,7 @@ class RSVM(SVM):
                              sum_squares(xi))
         constrain = [Q_R*alpha + b*y + xi >= 1, alpha >= 0, xi >= 0]
         prob = Problem(objective, constrain)
-        with Timer('solving'):
-            prob.solve()
+        prob.solve()
         #print "status:", prob.status
         #print "optimal value", prob.value
         #"optimal var", alpha.value.ravel(), b.value
@@ -147,16 +149,22 @@ class CSSVM(SVM):
     def __init__(self, C=1.0, kernel='rbf', degree=3, gamma='auto', coef0=0.0,
                  shrinking=True, probability=False, tol=0.001, cache_size=200,
                  class_weight=None, verbose=False, max_iter=-1, 
-                 decision_function_shape=None, random_state=None):
+                 decision_function_shape=None, random_state=None, m = 0):
         super(CSSVM, self).__init__(C, 'rbf', degree, gamma, coef0,
                  shrinking, probability, tol, cache_size,
                  class_weight, verbose, max_iter, 
                  decision_function_shape, random_state)
         if kernel == 'linear': print 'Warning: only rbf kernel available now!' # TODO because of indefinite Q
+        self.m = m
+        assert m>0
+
+    def get_params(self, deep=False):
+        # suppose this estimator has parameters "alpha" and "recursive"
+        return {"C": self.C, "gamma": self.gamma, "kernel": self.kernel, "m": self.m}
 
     def _solve_primal_alpha(self, Q, y):
         l = len(Q)
-        m = int(l/4) # TODO
+        m = self.m
         self._phi = np.random.uniform(-1, 1, (l, m))
         Q_R = Q.dot(self._phi)
         Q_RR = self._phi.T.dot(Q_R)
@@ -169,8 +177,7 @@ class CSSVM(SVM):
         #objective = Minimize((0.5/C)*(sum_squares(alpha) + square(b)) + sum_squares(xi))
         constrain = [Q_R*alpha + b*y + xi >= 1, alpha >= 0, xi >= 0]
         prob = Problem(objective, constrain)
-        with Timer('solving'):
-            prob.solve()
+        prob.solve()
         #print "status:", prob.status
         #print "optimal value", prob.value
         #"optimal var", alpha.value.ravel(), b.value
@@ -193,7 +200,7 @@ def main():
 if __name__ == '__main__':
     from sklearn.datasets import make_moons, make_classification
     from sklearn.cross_validation import train_test_split
-    X, y = make_moons(n_samples=1000, noise=0.3, random_state=0)
+    X, y = make_moons(n_samples=100, noise=0.3, random_state=0)
     #X, y = make_classification(n_samples=500, n_features=2, n_redundant=0, n_informative=2, random_state=1, n_clusters_per_class=1) # linearly separable
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.4)
 
