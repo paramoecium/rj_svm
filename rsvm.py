@@ -103,48 +103,6 @@ class SVM(object):
         self._b = b.value
         self._ya = np.multiply(self._alpha, np.vstack(y))
 
-class RSVM(SVM):
-    def __init__(self, C=1.0, kernel='rbf', degree=3, gamma='auto', coef0=0.0,
-                 shrinking=True, probability=False, tol=0.001, cache_size=200,
-                 class_weight=None, verbose=False, max_iter=-1, 
-                 decision_function_shape=None, random_state=None, m=0):
-        super(RSVM, self).__init__(C, 'rbf', degree, gamma, coef0,
-                 shrinking, probability, tol, cache_size,
-                 class_weight, verbose, max_iter, 
-                 decision_function_shape, random_state)
-        if kernel == 'linear': print 'Warning: only rbf kernel available now!' # TODO because CVXPY can't solve with indefinite Q
-        self.m = m
-        assert m>0
-    def get_params(self, deep=False):
-        # suppose this estimator has parameters "alpha" and "recursive"
-        return {"C": self.C, "gamma": self.gamma, "kernel": self.kernel, "m": self.m}
-
-    def _solve_primal_alpha(self, Q, y):
-        l = len(Q)
-        m = self.m
-        self._R_index = np.random.choice(l, m, replace=False)
-        Q_R = Q[:, self._R_index]
-        Q_RR = Q_R[self._R_index, :]
-
-        alpha = Variable(m)
-        b = Variable()
-        xi = Variable(l)
-        C = self.C
-        objective = Minimize((0.5/C)*((quad_form(alpha, Q_RR)) + square(b)) + 
-                             sum_squares(xi))
-        constrain = [Q_R*alpha + b*y + xi >= 1, alpha >= 0, xi >= 0]
-        prob = Problem(objective, constrain)
-        prob.solve()
-        #print "status:", prob.status
-        #print "optimal value", prob.value
-        #"optimal var", alpha.value.ravel(), b.value
-        self._alpha = alpha.value
-        self._b = b.value
-        y_R = np.array(y)[self._R_index]
-        self._ya = np.multiply(self._alpha, np.vstack(y_R))
-        self._X = self._X[self._R_index]
-        assert len(self._ya) == len(self._X)
-
 class CSSVM(SVM):
     def __init__(self, C=1.0, kernel='rbf', degree=3, gamma='auto', coef0=0.0,
                  shrinking=True, probability=False, tol=0.001, cache_size=200,
@@ -165,7 +123,7 @@ class CSSVM(SVM):
     def _solve_primal_alpha(self, Q, y):
         l = len(Q)
         m = self.m
-        self._phi = np.random.uniform(-1, 1, (l, m))
+        self._phi = np.random.uniform(-1, 1, (l, m)) #TODO bernoulli also works.
         Q_R = Q.dot(self._phi)
         Q_RR = self._phi.T.dot(Q_R)
 
@@ -194,13 +152,54 @@ class CSSVM(SVM):
         f = np.squeeze(np.array(f))
         return f
 
+class RSVM(CSSVM):
+    def __init__(self, C=1.0, kernel='rbf', degree=3, gamma='auto', coef0=0.0,
+                 shrinking=True, probability=False, tol=0.001, cache_size=200,
+                 class_weight=None, verbose=False, max_iter=-1, 
+                 decision_function_shape=None, random_state=None, m=0):
+        super(RSVM, self).__init__(C, 'rbf', degree, gamma, coef0,
+                 shrinking, probability, tol, cache_size,
+                 class_weight, verbose, max_iter, 
+                 decision_function_shape, random_state, m)
+
+    def _solve_primal_alpha(self, Q, y):
+        l = len(Q)
+        m = self.m
+        self._R_index = np.random.choice(l, m, replace=False)
+        Q_R = Q[:, self._R_index]
+        Q_RR = Q_R[self._R_index, :]
+
+        alpha = Variable(m)
+        b = Variable()
+        xi = Variable(l)
+        C = self.C
+        objective = Minimize((0.5/C)*((quad_form(alpha, Q_RR)) + square(b)) + 
+                             sum_squares(xi))
+        constrain = [Q_R*alpha + b*y + xi >= 1, alpha >= 0, xi >= 0]
+        prob = Problem(objective, constrain)
+        prob.solve()
+        #print "status:", prob.status
+        #print "optimal value", prob.value
+        #"optimal var", alpha.value.ravel(), b.value
+        self._alpha = alpha.value
+        self._b = b.value
+        y_R = np.array(y)[self._R_index]
+        self._ya = np.multiply(self._alpha, np.vstack(y_R))
+        self._X = self._X[self._R_index]
+        assert len(self._ya) == len(self._X)
+
+    def decision_function(self, X):
+        return SVM.decision_function(self, X)
 def main():
     pass
 
 if __name__ == '__main__':
     from sklearn.datasets import make_moons, make_classification
     from sklearn.cross_validation import train_test_split
-    X, y = make_moons(n_samples=100, noise=0.3, random_state=0)
+    l = 100
+    m = l/8
+    X, y = make_moons(n_samples=l, noise=0.3, random_state=0)
+    print X[0],y[:10]
     #X, y = make_classification(n_samples=500, n_features=2, n_redundant=0, n_informative=2, random_state=1, n_clusters_per_class=1) # linearly separable
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.4)
 
@@ -221,7 +220,7 @@ if __name__ == '__main__':
     print
 
     print('RSVM, rbf kernel')
-    clf = RSVM(C=1, kernel='rbf', gamma='auto')
+    clf = RSVM(C=1, kernel='rbf', gamma='auto', m=m)
     with Timer('training'):
         clf.fit(X_train, y_train)
     with Timer('testing'):
@@ -229,7 +228,7 @@ if __name__ == '__main__':
     print
 
     print('CSSVM, rbf kernel')
-    clf = CSSVM(C=1, kernel='rbf', gamma='auto')
+    clf = CSSVM(C=1, kernel='rbf', gamma='auto', m=m)
     with Timer('training'):
         clf.fit(X_train, y_train)
     with Timer('testing'):
