@@ -123,9 +123,9 @@ class CSSVM(SVM):
     def _solve_primal_alpha(self, Q, y):
         l = len(Q)
         m = self.m
-        self._phi = np.random.uniform(-1, 1, (l, m)) #TODO bernoulli also works.
-        Q_R = Q.dot(self._phi)
-        Q_RR = self._phi.T.dot(Q_R)
+        self._phi = np.random.uniform(-1, 1, (m, l)) #TODO bernoulli also works.
+        Q_R = Q.dot(self._phi.T)
+        Q_RR = self._phi.dot(Q_R)
 
         alpha = Variable(m)
         b = Variable()
@@ -139,18 +139,9 @@ class CSSVM(SVM):
         #print "status:", prob.status
         #print "optimal value", prob.value
         #"optimal var", alpha.value.ravel(), b.value
-        self._alpha = alpha.value
+        self._alpha = np.dot(self._phi.T, alpha.value)
         self._b = b.value
-        self._y = y
-
-    def decision_function(self, X):
-        assert self.kernel == 'rbf'
-        y = np.zeros(len(X))
-        y_dot_K = np.multiply(rbf_kernel(self._X, X), self._y)
-        w_dot_x = np.dot(self._alpha.T, np.dot(self._phi.T, y_dot_K))
-        f = w_dot_x + self._b
-        f = np.squeeze(np.array(f))
-        return f
+        self._ya = np.multiply(self._alpha, np.vstack(y))
 
 class RSVM(CSSVM):
     def __init__(self, C=1.0, kernel='rbf', degree=3, gamma='auto', coef0=0.0,
@@ -188,15 +179,14 @@ class RSVM(CSSVM):
         self._X = self._X[self._R_index]
         assert len(self._ya) == len(self._X)
 
-    def decision_function(self, X):
-        return SVM.decision_function(self, X)
+
 def main():
     pass
 
 if __name__ == '__main__':
     from sklearn.datasets import make_moons, make_classification
     from sklearn.cross_validation import train_test_split
-    l = 100
+    l = 1000
     m = l/8
     X, y = make_moons(n_samples=l, noise=0.3, random_state=0)
     print X[0],y[:10]
